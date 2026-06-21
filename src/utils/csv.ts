@@ -105,7 +105,7 @@ export function parseCSVText(text: string): ParseResult {
         continue;
       }
       records.push(r);
-    } catch (e) {
+    } catch {
       warnings.push(`第${i + 2}行: 解析异常`);
     }
   }

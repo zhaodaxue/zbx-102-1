@@ -43,7 +43,7 @@ export default function FileUploader() {
       if (res.warnings.length) {
         console.warn("CSV 解析提示：", res.warnings);
       }
-    } catch (e) {
+    } catch {
       setToast({ type: "err", msg: "文件解析失败" });
     } finally {
       setBusy(false);

@@ -1,12 +1,25 @@
 import { useMemo, useRef, useState, useEffect } from "react";
-import { CalendarDays, CloudRain, FlaskConical, Flame, Grid3x3, Thermometer } from "lucide-react";
+import {
+  CalendarDays,
+  CloudRain,
+  FlaskConical,
+  Flame,
+  Grid3x3,
+  Info,
+  Thermometer,
+} from "lucide-react";
 import { useDataStore } from "../store/useDataStore";
 import { getMaxCellCount } from "../utils/dataProcess";
-import { dateInRange, fmtDateFull, fmtDateShort } from "../utils/dateUtils";
+import {
+  dateInRange,
+  fmtDateFull,
+  fmtDateShort,
+  getDayOfWeek,
+} from "../utils/dateUtils";
 import type { MatrixCellData } from "../types";
 
 export default function TrapDateMatrix() {
-  const { matrix, setSelectedExportRange, selectedExportRange, overview } = useDataStore();
+  const { matrix, setSelectedExportRange, selectedExportRange } = useDataStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const headRef = useRef<HTMLDivElement>(null);
 
@@ -20,6 +33,7 @@ export default function TrapDateMatrix() {
     x: number;
     y: number;
   } | null>(null);
+  const [showSurgeInfo, setShowSurgeInfo] = useState(false);
 
   const max = useMemo(() => getMaxCellCount(matrix), [matrix]);
 
@@ -122,7 +136,7 @@ export default function TrapDateMatrix() {
 
   const weekSeparators: number[] = [];
   for (let i = 1; i < matrix.columns.length; i++) {
-    const cur = new Date(matrix.columns[i]).getDay();
+    const cur = getDayOfWeek(matrix.columns[i]);
     if (cur === 1) weekSeparators.push(i);
   }
 
@@ -133,8 +147,11 @@ export default function TrapDateMatrix() {
 
   return (
     <section
-      className="reveal stagger-5 card-surface flex flex-col p-5 h-full"
-      onMouseLeave={() => setHover(null)}
+      className="reveal stagger-5 card-surface flex flex-col p-5 h-full relative"
+      onMouseLeave={() => {
+        setHover(null);
+        setShowSurgeInfo(false);
+      }}
     >
       <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-start gap-2">
@@ -150,8 +167,41 @@ export default function TrapDateMatrix() {
                 在列标题区域按住鼠标 <kbd className="rounded bg-ink-100 px-1 font-mono text-[10px]">拖拽</kbd> 可选择导出日期区间
               </span>
               <span className="mx-2 text-ink-300">·</span>
-              红色单元格 = 该灯较上周同日骤升 ≥ 50%
+              <span className="inline-flex items-center gap-1">
+                红色单元格 = 该灯较上周同日骤升 ≥ 50%
+                <button
+                  onMouseEnter={() => setShowSurgeInfo(true)}
+                  onMouseLeave={() => setShowSurgeInfo(false)}
+                  onClick={() => setShowSurgeInfo((v) => !v)}
+                  className="rounded-full p-0.5 text-ink-400 hover:bg-ink-100 hover:text-ink-600 transition"
+                  title="骤升口径说明"
+                >
+                  <Info className="h-3.5 w-3.5" />
+                </button>
+              </span>
             </p>
+            {showSurgeInfo && (
+              <div className="absolute right-5 top-16 z-30 w-72 rounded-xl bg-ink-900/95 p-3 text-xs text-white shadow-pop ring-1 ring-white/10">
+                <p className="mb-2 font-bold text-plant-300">📊 骤升判定口径</p>
+                <ul className="space-y-1.5 text-ink-200">
+                  <li>
+                    <span className="font-semibold text-white">环比表：</span>
+                    本周总诱捕量 vs 上周总诱捕量，增幅 {">"} 50%
+                  </li>
+                  <li>
+                    <span className="font-semibold text-white">矩阵逐日：</span>
+                    当日诱捕量 vs 上周同日诱捕量，增幅 {">"} 50%
+                  </li>
+                  <li>
+                    <span className="font-semibold text-white">特殊情况：</span>
+                    上周同期数据缺失或为 0 时，不判定为骤升
+                  </li>
+                </ul>
+                <p className="mt-2 pt-2 border-t border-white/10 text-[11px] text-ink-400">
+                  所有增幅计算均基于筛选条件下的有效数据（如仅降雨夜、施药后 3 天内等）
+                </p>
+              </div>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -268,7 +318,7 @@ export default function TrapDateMatrix() {
               <div className="flex">
                 {matrix.columns.map((d, i) => {
                   const inWeek = weekSeparators.includes(i);
-                  const day = new Date(d).getDay();
+                  const day = getDayOfWeek(d);
                   const weekend = day === 0 || day === 6;
                   return (
                     <div
@@ -326,10 +376,8 @@ export default function TrapDateMatrix() {
                       {matrix.columns.map((d, ci) => {
                         const cell = matrix.cells[ri][ci];
                         const inWeek = weekSeparators.includes(ci);
-                        const weekend = (() => {
-                          const wd = new Date(d).getDay();
-                          return wd === 0 || wd === 6;
-                        })();
+                        const wd = getDayOfWeek(d);
+                        const weekend = wd === 0 || wd === 6;
                         const bg = cellBg(cell);
                         const bgStr = typeof bg === "string" ? bg : "";
                         const bgObj = typeof bg === "object" ? bg : null;

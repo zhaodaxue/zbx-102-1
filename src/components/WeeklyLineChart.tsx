@@ -18,10 +18,9 @@ const DISTRICT_COLORS = [
 export default function WeeklyLineChart() {
   const ref = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
-  const { weeklyData, filter, districts } = useDataStore();
+  const { weeklyData, filter } = useDataStore();
 
-  const activeDistricts =
-    filter.selectedDistricts.length > 0 ? filter.selectedDistricts : districts;
+  const activeDistricts = filter.selectedDistricts;
 
   const { weeks, seriesMap } = useMemo(
     () => getLineChartSeries(weeklyData, activeDistricts, filter.dateRange),

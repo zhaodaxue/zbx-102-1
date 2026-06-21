@@ -25,8 +25,8 @@ export default function ComparisonTable() {
       );
     }
     arr.sort((a, b) => {
-      let av: number | string = a[sortKey];
-      let bv: number | string = b[sortKey];
+      const av = a[sortKey];
+      const bv = b[sortKey];
       if (typeof av === "number" && typeof bv === "number") {
         return sortDir === "asc" ? av - bv : bv - av;
       }

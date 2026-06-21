@@ -6,6 +6,7 @@ import {
   endOfWeek,
   format,
   formatISO,
+  getDay,
   getISOWeek,
   getYear,
   isWithinInterval,
@@ -133,4 +134,22 @@ export function getCurrentWeekKeyAndPrev(
   const thisWeek = weeks[weeks.length - 1] ?? null;
   const lastWeek = weeks[weeks.length - 2] ?? null;
   return { thisWeek, lastWeek };
+}
+
+export function getDayOfWeek(s: string): number {
+  return getDay(parseISO(s));
+}
+
+export function isValidDate(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const d = parseISO(s);
+  return !Number.isNaN(d.getTime());
+}
+
+export function normalizeDateRange(
+  range: [string, string]
+): [string, string] {
+  const [a, b] = range;
+  if (a <= b) return [a, b];
+  return [b, a];
 }

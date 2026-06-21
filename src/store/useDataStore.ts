@@ -10,6 +10,7 @@ import {
   getAllDistricts,
   getDefaultDateRange,
 } from "../utils/dataProcess";
+import { normalizeDateRange } from "../utils/dateUtils";
 
 interface DataStore {
   rawRecords: TrapRecord[];
@@ -24,12 +25,17 @@ interface DataStore {
   matrix: ReturnType<typeof buildMatrix>;
   overview: OverviewStats;
 
+  lastDateRangeSwapped: boolean;
+  clearDateRangeSwapFlag: () => void;
+
   setRawRecords: (recs: TrapRecord[], sourceName?: string) => void;
   resetToMock: () => void;
   setFilter: (patch: Partial<FilterState>) => void;
   resetFilter: () => void;
   toggleDistrict: (d: string) => void;
   setSelectedExportRange: (r: [string, string] | null) => void;
+  selectAllDistricts: () => void;
+  clearDistricts: () => void;
 }
 
 function buildEmptyOverview(): OverviewStats {
@@ -44,13 +50,16 @@ function buildEmptyOverview(): OverviewStats {
   };
 }
 
+// 保留以便后续扩展使用
+void buildEmptyOverview;
+
 export const useDataStore = create<DataStore>((set, get) => {
   const initial = MOCK_RECORDS;
   const districtsInitial = getAllDistricts(initial);
   const defaultRange = getDefaultDateRange(initial);
   const initialFilter: FilterState = {
     dateRange: defaultRange,
-    selectedDistricts: [],
+    selectedDistricts: [...districtsInitial],
     rainOnly: false,
     pesticideWithin3Days: false,
   };
@@ -65,6 +74,7 @@ export const useDataStore = create<DataStore>((set, get) => {
     sourceName: "示例数据 (mock)",
     filter: initialFilter,
     selectedExportRange: null,
+    lastDateRangeSwapped: false,
     filteredRecords: filtered,
     districts: districtsInitial,
     weeklyData: weekly,
@@ -72,12 +82,16 @@ export const useDataStore = create<DataStore>((set, get) => {
     matrix,
     overview,
 
+    clearDateRangeSwapFlag() {
+      set({ lastDateRangeSwapped: false });
+    },
+
     setRawRecords(recs, sourceName) {
       const districts = getAllDistricts(recs);
       const defaultRange = getDefaultDateRange(recs);
       const filter: FilterState = {
         dateRange: defaultRange,
-        selectedDistricts: [],
+        selectedDistricts: [...districts],
         rainOnly: false,
         pesticideWithin3Days: false,
       };
@@ -87,6 +101,7 @@ export const useDataStore = create<DataStore>((set, get) => {
         sourceName: sourceName ?? "用户数据",
         filter,
         districts,
+        lastDateRangeSwapped: false,
         filteredRecords: filtered,
         weeklyData: aggregateByWeekAndDistrict(filtered),
         comparisons: calcTrapWeekComparison(filtered),
@@ -97,16 +112,28 @@ export const useDataStore = create<DataStore>((set, get) => {
     },
 
     resetToMock() {
-      get().setRawRecords(MOCK_RECORDS, "示例数据 (mock)");
+      get().setRawRecords(MOCK_RECORDS, "示例数据 (mock");
     },
 
     setFilter(patch) {
-      const filter = { ...get().filter, ...patch };
+      const prevFilter = get().filter;
+      const next: FilterState = { ...prevFilter, ...patch };
+
+      let swapped = false;
+      if (next.dateRange && next.dateRange[0] && next.dateRange[1]) {
+        const norm = normalizeDateRange(next.dateRange);
+        if (norm[0] !== next.dateRange[0] || norm[1] !== next.dateRange[1]) {
+          swapped = true;
+        }
+        next.dateRange = norm;
+      }
+
       const recs = get().rawRecords;
-      const filtered = filterRecords(recs, filter);
+      const filtered = filterRecords(recs, next);
       const comps = calcTrapWeekComparison(filtered);
       set({
-        filter,
+        filter: next,
+        lastDateRangeSwapped: swapped,
         filteredRecords: filtered,
         weeklyData: aggregateByWeekAndDistrict(filtered),
         comparisons: comps,
@@ -117,10 +144,11 @@ export const useDataStore = create<DataStore>((set, get) => {
 
     resetFilter() {
       const recs = get().rawRecords;
+      const districts = getAllDistricts(recs);
       const defaultRange = getDefaultDateRange(recs);
       get().setFilter({
         dateRange: defaultRange,
-        selectedDistricts: [],
+        selectedDistricts: [...districts],
         rainOnly: false,
         pesticideWithin3Days: false,
       });
@@ -130,6 +158,15 @@ export const useDataStore = create<DataStore>((set, get) => {
       const cur = get().filter.selectedDistricts;
       const next = cur.includes(d) ? cur.filter((x) => x !== d) : [...cur, d];
       get().setFilter({ selectedDistricts: next });
+    },
+
+    selectAllDistricts() {
+      const districts = get().districts;
+      get().setFilter({ selectedDistricts: [...districts] });
+    },
+
+    clearDistricts() {
+      get().setFilter({ selectedDistricts: [] });
     },
 
     setSelectedExportRange(r) {
